@@ -1,83 +1,107 @@
-# Echo Server
+# WebSocket Echo Server Example
 
-A very simple HTTP echo server with support for websockets and server-sent
-events (SSE).
+A simple, standalone WebSocket echo server with a built-in web interface for testing.
 
-The server is designed for testing HTTP proxies and clients. It echoes
-information about HTTP request headers and bodies back to the client.
+## Features
 
-## Behavior
+- WebSocket server that echoes back any message it receives
+- Built-in HTML test page with interactive UI
+- Supports both text and binary messages
+- Connection status indicator
+- Message history display
+- Auto-connect on page load
 
-- Any messages sent from a websocket client are echoed as a websocket message.
-- Requests to a file named `.ws` under any path serve a basic UI to connect and send websocket messages.
-- Requests to a file named `.sse` under any path streams server-sent events.
-- Request any other URL to receive the echo response in plain text.
-
-## Configuration
-
-### Port
-
-The `PORT` environment variable sets the server port, which defaults to `8080`.
-
-### Logging
-
-Set the `LOG_HTTP_HEADERS` environment variable to print request headers to
-`STDOUT`. Additionally, set the `LOG_HTTP_BODY` environment variable to print
-entire request bodies.
-
-### Server Hostname
-
-Set the `SEND_SERVER_HOSTNAME` environment variable to `false` to prevent the
-server from responding with its hostname before echoing the request. The client
-may send the `X-Send-Server-Hostname` request header to `true` or `false` to
-override this server-wide setting on a per-request basis.
-
-### Arbitrary Headers
-
-Set the `SEND_HEADER_<header-name>` variable to send arbitrary additional
-headers in the response. Underscores in the variable name are converted to
-hyphens in the header. For example, the following environment variables can be
-used to disable CORS:
+## Running the Server
 
 ```bash
-SEND_HEADER_ACCESS_CONTROL_ALLOW_ORIGIN="*"
-SEND_HEADER_ACCESS_CONTROL_ALLOW_METHODS="*"
-SEND_HEADER_ACCESS_CONTROL_ALLOW_HEADERS="*"
+cd examples
+go run websocket-echo-server.go
 ```
 
-### WebSocket URL
+The server will start on port 8080.
 
-Set the `WEBSOCKET_ROOT` environment variable to prefix all websocket
-requests made by the `.ws` user interface with a specific path.
+## Testing the Server
 
-## Running the server
+### Option 1: Use the Built-in Web Interface
 
-The examples below show a few different ways of running the server with the HTTP
-server bound to a custom TCP port of `10000`.
+1. Open your browser and navigate to: `http://localhost:8080`
+2. The page will automatically connect to the WebSocket server
+3. Type messages in the input field and click "Send" (or press Enter)
+4. Watch your messages being echoed back in real-time
 
-### Running locally
+### Option 2: Use Command Line Tools
 
-```
-go get -u github.com/jmalloc/echo-server/...
-PORT=10000 echo-server
-```
-
-### Running under Docker
-
-To run the latest version as a container:
-
-```
-docker run --detach -p 10000:8080 jmalloc/echo-server
+**Using `websocat` (install from https://github.com/vi/websocat):**
+```bash
+websocat ws://localhost:8080/ws
 ```
 
-Or, as a swarm service:
+**Using `wscat` (install via npm: `npm install -g wscat`):**
+```bash
+wscat -c ws://localhost:8080/ws
+```
 
-```
-docker service create --publish 10000:8080 jmalloc/echo-server
+### Option 3: Use JavaScript in Browser Console
+
+```javascript
+const ws = new WebSocket('ws://localhost:8080/ws');
+
+ws.onopen = () => {
+    console.log('Connected!');
+    ws.send('Hello, Server!');
+};
+
+ws.onmessage = (event) => {
+    console.log('Received:', event.data);
+};
+
+ws.onerror = (error) => {
+    console.error('Error:', error);
+};
+
+ws.onclose = () => {
+    console.log('Disconnected');
+};
 ```
 
-The docker container can be built locally with:
+## How It Works
 
+1. **HTTP Upgrade**: The server upgrades HTTP connections to WebSocket protocol
+2. **Welcome Message**: Upon connection, sends a welcome message to the client
+3. **Echo Loop**: Continuously reads messages and echoes them back
+4. **Logging**: Logs all connections, messages, and disconnections to console
+
+## Code Structure
+
+- **`upgrader`**: Configures WebSocket upgrade with CORS enabled
+- **`handleWebSocket()`**: Handles WebSocket connections and message echoing
+- **`handleHome()`**: Serves the HTML test interface
+- **`main()`**: Sets up routes and starts the HTTP server
+
+## Example Output
+
+Server console:
 ```
-make docker
+2025/11/18 15:05:23 WebSocket Echo Server starting on port 8080
+2025/11/18 15:05:23 Open http://localhost:8080 in your browser
+2025/11/18 15:05:30 Client connected: [::1]:54321
+2025/11/18 15:05:35 Received (text): Hello, Server!
+2025/11/18 15:05:40 Received (text): Testing echo...
+2025/11/18 15:05:45 Client disconnected: [::1]:54321
 ```
+
+## Dependencies
+
+This example uses the Gorilla WebSocket library:
+```bash
+go get github.com/gorilla/websocket
+```
+
+## Customization
+
+You can modify the server by:
+- Changing the port in `main()` function
+- Adding message processing logic in the echo loop
+- Implementing custom message types or protocols
+- Adding authentication or rate limiting
+- Storing message history
